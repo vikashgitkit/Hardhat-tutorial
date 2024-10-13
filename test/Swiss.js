@@ -1,22 +1,47 @@
+const { loadFixture } = require("@nomicfoundation/hardhat-toolbox/network-helpers");
 const { expect } = require("chai");
 
-describe("Token contract", function () {
-  it("Deployment should startGame", async function () {
-    const [owner, gameController] = await ethers.getSigners(); // Get signers for owner and game controller
+describe("Swiss contract", function () {
+  // Fixture to deploy the contract
+  async function deployTokenFixture() {
+    const [owner, gameController, addr2] = await ethers.getSigners(); // Get signers, including gameController
+    
+    // Deploy the contract with gameController address (required by the constructor)
+    const hardhatToken = await ethers.deployContract("Swiss", [gameController.address]);
 
-    // Correct method to deploy the contract with the gameController address
-    const TokenFactory = await ethers.getContractFactory("Swiss");
+    // Return necessary data for the test
+    return { hardhatToken, owner, gameController, addr2 };
+  }
 
-    // Deploy the contract with gameController address
-    const hardhatToken = await TokenFactory.deploy(gameController.address);
+  // Deployment test suite
+  describe("Deployment", function () {
+    it("Should set the correct gameController", async function () {
+      const { hardhatToken, gameController } = await loadFixture(deployTokenFixture);
 
-    // Wait for deployment to finish
-    await hardhatToken.waitForDeployment();
+      // Check if the gameController is set correctly
+      expect(await hardhatToken.gameController()).to.equal(gameController.address);
+    });
+  });
 
-    // Interact with the contract using connect() to specify the gameController (the owner)
-    await hardhatToken.connect(gameController).startGame();
+  // Start game function test suite
+  describe("startGame function", function () {
+    it("Should start the game when called by gameController", async function () {
+      const { hardhatToken, gameController } = await loadFixture(deployTokenFixture);
 
-    // Validate if the game is running by calling the isRunning() method
-    expect(await hardhatToken.isRunning()).to.equal(true);
+      // Interact with the contract using gameController to start the game
+      await hardhatToken.connect(gameController).startGame();
+
+      // Validate if the game is running by calling the isRunning() method
+      expect(await hardhatToken.isRunning()).to.equal(true);
+    });
+
+    it("Should fail to start the game when called by non-gameController", async function () {
+      const { hardhatToken, owner } = await loadFixture(deployTokenFixture);
+
+      // Attempt to start the game with the owner (not the gameController)
+      await expect(hardhatToken.connect(owner).startGame()).to.be.revertedWithCustomError(
+        hardhatToken, "OwnableUnauthorizedAccount"
+      ).withArgs(owner.address); // Check that the custom error includes the owner's address
+    });
   });
 });
