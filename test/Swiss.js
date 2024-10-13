@@ -9,6 +9,7 @@ describe("Swiss contract", function () {
     // Deploy the contract with gameController address (required by the constructor)
     const hardhatToken = await ethers.deployContract("Swiss", [gameController.address]);
 
+    await hardhatToken.waitForDeployment();
     // Return necessary data for the test
     return { hardhatToken, owner, gameController, addr2 };
   }
